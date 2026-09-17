@@ -1,0 +1,27 @@
+services:
+  web:
+    build: .
+    image: codealpha-webserver:local
+    ports:
+      - "8080:3000"
+    environment:
+      NODE_ENV: production
+    networks:
+      - appnet
+    volumes:
+      # Named volume for logs, to demonstrate data surviving container removal.
+      - weblogs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/healthz"]
+      interval: 30s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+
+networks:
+  appnet:
+    driver: bridge
+
+volumes:
+  weblogs:

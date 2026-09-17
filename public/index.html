@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Container manifest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --steel: #dfe6ea;
+    --ink: #10212b;
+    --ink-soft: #55676f;
+    --teal: #1c6e8c;
+    --signal: #e4b363;
+    --rule: #b9c6cc;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.25rem;
+    background: var(--steel);
+    background-image: linear-gradient(var(--rule) 1px, transparent 1px),
+                      linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+    background-size: 28px 28px;
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+  }
+
+  .manifest {
+    width: 100%;
+    max-width: 34rem;
+    background: #f7f9fa;
+    border: 1px solid var(--ink);
+    box-shadow: 10px 10px 0 rgba(16, 33, 43, 0.12);
+  }
+
+  .stamp {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.1rem 1.5rem;
+    border-bottom: 1px solid var(--ink);
+    background: var(--teal);
+    color: #f7f9fa;
+  }
+
+  .stamp h1 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+
+  .stamp span {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.8rem;
+  }
+
+  .lede {
+    margin: 0;
+    padding: 1.5rem 1.5rem 1.25rem;
+    font-size: 1rem;
+    line-height: 1.6;
+    max-width: 52ch;
+    color: var(--ink-soft);
+  }
+
+  dl {
+    margin: 0;
+    border-top: 1px solid var(--rule);
+  }
+
+  .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    padding: 0.8rem 1.5rem;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  dt {
+    font-size: 0.9rem;
+    color: var(--ink-soft);
+  }
+
+  dd {
+    margin: 0;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.9rem;
+    text-align: right;
+    word-break: break-all;
+  }
+
+  .pulse {
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+  }
+
+  .dot {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+    background: var(--signal);
+    flex: none;
+  }
+
+  .dot[data-state="ok"] { background: var(--teal); }
+  .dot[data-state="down"] { background: #a63d40; }
+
+  @media (max-width: 30rem) {
+    .row { flex-direction: column; gap: 0.15rem; }
+    dd { text-align: left; }
+  }
+</style>
+</head>
+<body>
+  <main class="manifest">
+    <div class="stamp">
+      <h1>Container manifest</h1>
+      <span>CodeAlpha / Task 4</span>
+    </div>
+
+    <p class="lede">
+      This page is served by an Express process running inside a Docker
+      container. The values below are read live from the container that
+      answered your request — run a second replica and the host ID changes.
+    </p>
+
+    <dl>
+      <div class="row"><dt>Host ID</dt><dd id="hostname">reading…</dd></div>
+      <div class="row"><dt>Uptime</dt><dd id="uptime">reading…</dd></div>
+      <div class="row"><dt>Node runtime</dt><dd id="node">reading…</dd></div>
+      <div class="row"><dt>Environment</dt><dd id="env">reading…</dd></div>
+    </dl>
+
+    <div class="pulse">
+      <span class="dot" id="dot"></span>
+      <span id="pulse-text">Contacting /healthz</span>
+    </div>
+  </main>
+
+<script>
+  const set = (id, value) => { document.getElementById(id).textContent = value; };
+
+  const formatUptime = (seconds) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return h > 0 ? `${h}h ${m}m ${s}s` : m > 0 ? `${m}m ${s}s` : `${s}s`;
+  };
+
+  async function poll() {
+    const dot = document.getElementById("dot");
+    try {
+      const res = await fetch("/healthz");
+      if (!res.ok) throw new Error(res.status);
+      const data = await res.json();
+      set("hostname", data.hostname);
+      set("uptime", formatUptime(data.uptimeSeconds));
+      set("node", data.nodeVersion);
+      set("env", data.environment);
+      dot.dataset.state = "ok";
+      set("pulse-text", "Health check passing");
+    } catch (err) {
+      dot.dataset.state = "down";
+      set("pulse-text", "No response from /healthz — check container logs");
+    }
+  }
+
+  poll();
+  setInterval(poll, 2000);
+</script>
+</body>
+</html>
