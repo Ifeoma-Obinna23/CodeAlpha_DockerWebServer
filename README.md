@@ -1,145 +1,143 @@
 # CodeAlpha_DockerWebServer
 
-Task 4 of the CodeAlpha DevOps internship: deploy and manage a web server inside
-Docker containers.
+**CodeAlpha DevOps Internship — Task 4: Web Server using Docker**
 
-The application is a small Express server that returns its own container
-identity. That choice is deliberate — the page shows the hostname, uptime and
-environment of whichever container answered the request, which makes container
-lifecycle and replica behaviour visible in the browser rather than only in the
-terminal.
+A small Express web app, containerized with Docker, that displays live
+information about the container running it (hostname, uptime, health status).
+This README doubles as a step-by-step guide — if you're learning Docker like I
+am, you should be able to follow it and get the same result.
 
-## What this project demonstrates
+## What this project shows
 
-| Requirement | Where it lives |
-| --- | --- |
-| Containerisation basics | `Dockerfile` — multi-stage build on `node:20-alpine` |
-| Image hygiene | `.dockerignore`, dependency stage discarded from final image |
-| Container security | runs as the unprivileged `node` user, not root |
-| Lifecycle commands | "Container lifecycle" section below |
-| Health monitoring | `HEALTHCHECK` instruction + `/healthz` endpoint |
-| Orchestration | `docker-compose.yml` with a bridge network and named volume |
-| Graceful shutdown | `SIGTERM` handler in `server.js` |
-
-## Requirements
-
-- Docker Desktop (or Docker Engine 20.10+)
-- No local Node.js install needed — the build happens inside the image
-
-## Quick start
-
-```bash
-# Build the image
-docker build -t codealpha-webserver:1.0 .
-
-# Run it, mapping host port 8080 to container port 3000
-docker run -d --name webserver -p 8080:3000 codealpha-webserver:1.0
-```
-
-Open <http://localhost:8080>. The health indicator should turn solid within a
-couple of seconds.
-
-With Compose instead:
-
-```bash
-docker compose up -d --build
-docker compose ps
-docker compose down
-```
-
-## Container lifecycle
-
-These are the commands to walk through in the demo video.
-
-```bash
-docker ps                      # running containers
-docker ps -a                   # including stopped ones
-docker stop webserver          # graceful stop (SIGTERM)
-docker start webserver         # restart the same container
-docker restart webserver
-docker logs -f webserver       # follow stdout
-docker exec -it webserver sh   # shell inside the running container
-docker inspect webserver       # full JSON config and state
-docker stats webserver         # live CPU / memory usage
-docker rm -f webserver         # remove the container
-docker images                  # local images
-docker rmi codealpha-webserver:1.0
-```
-
-Point worth making on camera: `docker stop` followed by `docker start` preserves
-the container's filesystem, while `docker rm` discards it. Data that must
-survive removal belongs in a volume — which is what `weblogs` in the Compose
-file is for.
-
-## Health monitoring
-
-The `HEALTHCHECK` in the Dockerfile polls `/healthz` every 30 seconds. Docker
-surfaces the result in the `STATUS` column:
-
-```bash
-docker ps
-# STATUS -> "Up 45 seconds (health: starting)" then "Up 2 minutes (healthy)"
-```
-
-To read the recorded probe history:
-
-```bash
-docker inspect --format '{{json .State.Health}}' webserver
-```
-
-To demonstrate an *unhealthy* container on camera, temporarily change the
-healthcheck URL in the Dockerfile to a path that does not exist (for example
-`/nope`), rebuild, and watch the status flip to `unhealthy` after the retries are
-exhausted. Revert it afterwards.
-
-## Running multiple replicas
-
-Because the page reports its own hostname, replicas are easy to show:
-
-```bash
-# Remove the "ports" block from docker-compose.yml first - published ports
-# cannot be shared by multiple replicas of the same service.
-docker compose up -d --scale web=3
-docker compose ps
-```
-
-Each container reports a different Host ID.
-
-## Troubleshooting
-
-**`port is already allocated`** — something else holds host port 8080. Map a
-different one: `-p 8081:3000`.
-
-**Page loads but the indicator says no response** — the server is not listening
-on the interface Docker forwards to. Confirm `server.js` binds `0.0.0.0` rather
-than `localhost`; a container that binds only to loopback is unreachable from
-the host.
-
-**Container exits immediately** — read `docker logs webserver`. A container
-lives only as long as its main process, so any startup crash stops it.
-
-**Health status stuck on `starting`** — that is expected during
-`--start-period`. If it never becomes `healthy`, run the healthcheck command
-manually inside the container: `docker exec webserver wget --spider http://localhost:3000/healthz`.
+- Building a Docker image with a **Dockerfile**
+- Running a container and mapping it to a browser port
+- A working **health check** that Docker monitors automatically
+- Basic container lifecycle commands (start, stop, logs, inspect)
+- Running the app with **Docker Compose** instead of long manual commands
 
 ## Project structure
 
 ```
 .
-├── Dockerfile              # multi-stage build definition
-├── .dockerignore           # files kept out of the build context
-├── docker-compose.yml      # single-service orchestration
-├── package.json
-├── server.js               # Express app and /healthz endpoint
+├── Dockerfile              # instructions Docker follows to build the image
+├── .dockerignore           # files Docker should ignore when building
+├── docker-compose.yml      # one-command way to start the container
+├── package.json            # lists the app's dependencies (Express)
+├── server.js               # the actual web server code
+├── README.md
 └── public/
-    └── index.html          # landing page
+    └── index.html          # the webpage a visitor sees
 ```
 
-## Notes
+## How I built this, step by step
 
-Dependencies are installed with `npm install --omit=dev`. Running `npm install`
-locally once will produce a `package-lock.json`; commit it and the Dockerfile
-line can be tightened to `npm ci --omit=dev` for fully reproducible builds.
+### 1. Installed the tools
+- [Git](https://git-scm.com/) — to push code to GitHub
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) — to build and run containers
+
+Checked both installed correctly:
+```bash
+git --version
+docker --version
+```
+
+### 2. Created the GitHub repository
+Created a new **public** repo named `CodeAlpha_DockerWebServer`, with a
+`.gitignore` set to Node, so files like `node_modules` never get uploaded.
+
+### 3. Cloned it to my computer
+```bash
+git clone https://github.com/<your-username>/CodeAlpha_DockerWebServer.git
+cd CodeAlpha_DockerWebServer
+```
+
+### 4. Wrote the app
+`server.js` is a small [Express](https://expressjs.com/) server. It does two things:
+- Serves the webpage in `public/index.html`
+- Exposes a `/healthz` endpoint that returns JSON with the server's status —
+  this is what Docker uses later to check if the container is "healthy"
+
+`package.json` lists Express as the one dependency the app needs.
+
+### 5. Wrote the Dockerfile
+The Dockerfile is a recipe Docker follows to package the app into an image.
+Key ideas, explained simply:
+- **Multi-stage build** — dependencies are installed in one temporary stage,
+  then only the finished result is copied into the final image. Keeps the
+  image smaller and cleaner.
+- **Runs as a non-root user** — safer than running as an administrator inside
+  the container.
+- **HEALTHCHECK** — a command Docker runs every 30 seconds to confirm the app
+  is actually responding, by pinging `/healthz`.
+
+### 6. Added a `.dockerignore`
+Tells Docker not to copy things like `node_modules` and `.git` into the image
+build — keeps builds faster and images smaller.
+
+### 7. Built the Docker image
+```bash
+docker build -t codealpha-webserver:1.0 .
+```
+> Note: Docker Desktop has to be **open and running** in the background before
+> this works, or you'll get a connection error.
+
+### 8. Ran the container
+```bash
+docker run -d --name webserver -p 8080:3000 codealpha-webserver:1.0
+```
+- `-d` runs it in the background
+- `--name webserver` gives the container a friendly name
+- `-p 8080:3000` connects port 8080 on your computer to port 3000 inside the
+  container (that's the port the app listens on)
+
+### 9. Checked it worked
+```bash
+docker ps
+```
+Look at the `STATUS` column — after about 10 seconds it should say
+`Up ... (healthy)`. That confirms the HEALTHCHECK is passing.
+
+Then opened a browser to:
+```
+http://localhost:8080
+```
+and saw the page with a live Host ID, uptime, and a green status dot.
+
+## Useful commands (container lifecycle)
+
+```bash
+docker ps                      # see running containers
+docker ps -a                   # see all containers, including stopped ones
+docker logs webserver          # view the app's output
+docker stop webserver          # stop the container
+docker start webserver         # start it again
+docker restart webserver
+docker exec -it webserver sh   # open a shell inside the running container
+docker inspect webserver       # see full details about the container
+docker rm -f webserver         # remove the container completely
+```
+
+## Running with Docker Compose instead
+
+Instead of typing the long `docker run` command, this does the same thing in
+one line:
+```bash
+docker compose up -d --build
+```
+And to stop everything:
+```bash
+docker compose down
+```
+
+## Try it yourself
+
+```bash
+git clone https://github.com/<your-username>/CodeAlpha_DockerWebServer.git
+cd CodeAlpha_DockerWebServer
+docker build -t codealpha-webserver:1.0 .
+docker run -d --name webserver -p 8080:3000 codealpha-webserver:1.0
+```
+Then visit `http://localhost:8080`.
 
 ---
 
