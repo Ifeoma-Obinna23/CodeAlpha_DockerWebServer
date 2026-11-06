@@ -47,7 +47,7 @@ Created a new **public** repo named `CodeAlpha_DockerWebServer`, with a
 
 ### 3. Cloned it to my computer
 ```bash
-git clone https://github.com/<your-username>/CodeAlpha_DockerWebServer.git
+git clone https://github.com/Ifeoma-Obinna23/CodeAlpha_DockerWebServer.git
 cd CodeAlpha_DockerWebServer
 ```
 
@@ -132,7 +132,7 @@ docker compose down
 ## Try it yourself
 
 ```bash
-git clone https://github.com/<your-username>/CodeAlpha_DockerWebServer.git
+git clone https://github.com/Ifeoma-Obinna23/CodeAlpha_DockerWebServer.git
 cd CodeAlpha_DockerWebServer
 docker build -t codealpha-webserver:1.0 .
 docker run -d --name webserver -p 8080:3000 codealpha-webserver:1.0
